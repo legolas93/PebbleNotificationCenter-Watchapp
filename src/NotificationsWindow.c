@@ -17,6 +17,7 @@ typedef struct
 
 uint8_t textSize = 0;
 uint16_t setTimeout = 0;
+bool vibrateEnabled;
 bool vibratePeriodically = true;
 
 uint32_t elapsedTime = 0;
@@ -244,7 +245,6 @@ Notification* notification_find_notification(int32_t id)
 void notification_center_single(ClickRecognizerRef recognizer, void* context)
 {
 	appIdle = false;
-
 	Notification* curNotification = &notificationData[notificationPositions[pickedNotification]];
 	if (curNotification == NULL)
 		return;
@@ -396,7 +396,7 @@ void notification_sendMoreText(int32_t id, uint8_t offset)
 	dict_write_int32(iterator, 1, id);
 	dict_write_uint8(iterator, 2, offset);
 	app_message_outbox_send();
-
+InverterLayer *inverter_layer;
 	app_comm_set_sniff_interval(SNIFF_INTERVAL_REDUCED);
 	app_comm_set_sniff_interval(SNIFF_INTERVAL_NORMAL);
 }
@@ -431,6 +431,8 @@ void notification_newNotification(DictionaryIterator *received)
 	bool autoSwitch = (flags & 0x04) != 0;
 	vibratePeriodically = (flags & 0x08) != 0;
 	bool vibrateLonger = (flags & 0x10) != 0;
+	vibrateEnabled = (flags & 0x40) != 0;
+	inverterEnabledStatus = (flags & 0x80) != 0;
 
 	enableCloseWindow = (flags & 0x20) != 0;
 	if (!enableCloseWindow)
@@ -445,9 +447,9 @@ void notification_newNotification(DictionaryIterator *received)
 
 		if (!inList)
 		{
-			if (numOfNotifications == 1 && vibrateLonger)
+			if (numOfNotifications == 1 && vibrateLonger && vibrateEnabled)
 				vibes_long_pulse();
-			else
+			else if (vibrateEnabled)
 				vibes_short_pulse();
 
 			appIdle = true;
@@ -651,7 +653,7 @@ void notification_second_tick()
 		return;
 	}
 
-	if (vibratePeriodically && appIdle && elapsedTime > 0 && elapsedTime % 10 == 0 && !notificationData[notificationPositions[pickedNotification]].inList)
+	if (vibratePeriodically && vibrateEnabled && appIdle && elapsedTime > 0 && elapsedTime % 10 == 0 && !notificationData[notificationPositions[pickedNotification]].inList)
 	{
 		vibes_short_pulse();
 	}
@@ -713,6 +715,9 @@ void notification_load(Window *window)
 	text_layer_set_font(text, fonts_get_system_font(FONT_KEY_GOTHIC_14));
 	text_layer_set_overflow_mode(text, GTextOverflowModeWordWrap);
 	scroll_layer_add_child(scroll, (Layer*) text);
+	
+	if(inverterEnabledStatus)
+	  layer_add_child(topLayer, inverter_layer_get_layer(inverter_layer));
 }
 
 void notification_unload(Window *window)
@@ -725,7 +730,7 @@ void notification_unload(Window *window)
 	text_layer_destroy(subTitle);
 	text_layer_destroy(text);
 	scroll_layer_destroy(scroll);
-
+  
 	window_destroy(window);
 }
 

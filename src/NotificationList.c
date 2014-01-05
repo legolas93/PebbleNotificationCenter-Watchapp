@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include <pebble_fonts.h>
 #include "NotificationCenter.h"
+#include "MainMenu.h"
 
 Window* listWindow;
 
@@ -338,6 +339,9 @@ void list_window_load(Window *me) {
 	menu_layer_set_click_config_onto_window(listMenuLayer, listWindow);
 
 	layer_add_child(topLayer, (Layer*) listMenuLayer);
+	
+	if(inverterEnabledStatus)
+	  layer_add_child(topLayer, inverter_layer_get_layer(inverter_layer));
 
 	setCurWindow(2);
 
